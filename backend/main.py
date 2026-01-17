@@ -24,6 +24,28 @@ class GuideResponse(BaseModel):
   isCrisis: bool
 
 
+class ReflectRequest(BaseModel):
+  text: str
+  age: int = 0
+  language: str = "English"
+
+
+class ReflectMetadata(BaseModel):
+  id: str
+  chapter: int
+  verse: int
+  topics: str
+  meaning: str
+
+
+class ReflectResponse(BaseModel):
+  verse_sanskrit_english: str
+  translation: str
+  personalized_wisdom: str
+  reflection_question: str
+  metadata: ReflectMetadata
+
+
 app = FastAPI(title="Gita Mind Guide API")
 
 app.add_middleware(
@@ -229,4 +251,38 @@ def guide(request: GuideRequest) -> GuideResponse:
   emotion, topic = basic_emotion_and_topic(message)
   verse = choose_verse(message)
   return build_explanation(message, emotion, topic, verse)
+
+
+@app.post("/api/v1/reflect", response_model=ReflectResponse)
+def reflect(request: ReflectRequest) -> ReflectResponse:
+  message = request.text.strip()
+  
+  # For now, we reuse the existing logic to pick a verse and generate wisdom
+  # This matches the user's requested response structure
+  emotion, topic = basic_emotion_and_topic(message)
+  verse = choose_verse(message)
+  
+  # Map to the new response format requested by user
+  # Creating a more "personalized" wisdom based on the existing build_explanation logic
+  guide = build_explanation(message, emotion, topic, verse)
+  
+  # Extract IDs for metadata (Chapter X, Verse Y)
+  import re
+  ref_match = re.search(r"Chapter (\d+), Verse (\d+)", verse.reference)
+  chapter = int(ref_match.group(1)) if ref_match else 0
+  verse_num = int(ref_match.group(2)) if ref_match else 0
+  
+  return ReflectResponse(
+    verse_sanskrit_english=f"{verse.sanskrit}. {verse.translation}",
+    translation=verse.translation,
+    personalized_wisdom=guide.response,
+    reflection_question=guide.reflectionQuestion if not guide.isCrisis else "",
+    metadata=ReflectMetadata(
+      id=f"bg-{chapter}-{verse_num}",
+      chapter=chapter,
+      verse=verse_num,
+      topics=topic.lower().replace(" ", ","),
+      meaning=verse.translation
+    )
+  )
 

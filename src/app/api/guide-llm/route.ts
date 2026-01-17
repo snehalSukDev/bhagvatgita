@@ -31,8 +31,8 @@ async function callOllamaLlm(
   const contextBlock =
     passages.length > 0
       ? `Yah kuchh sambandhit Gita ke bhaag hain:\n\n${passages
-          .map((p, index) => `(${index + 1}) ${p}`)
-          .join("\n\n")}\n\n`
+        .map((p, index) => `(${index + 1}) ${p}`)
+        .join("\n\n")}\n\n`
       : "";
 
   const userPrompt =
@@ -136,8 +136,8 @@ async function callOpenAiLlm(
   const contextBlock =
     passages.length > 0
       ? `Yah kuchh sambandhit Gita ke bhaag hain:\n\n${passages
-          .map((p, index) => `(${index + 1}) ${p}`)
-          .join("\n\n")}\n\n`
+        .map((p, index) => `(${index + 1}) ${p}`)
+        .join("\n\n")}\n\n`
       : "";
 
   const userPrompt =
@@ -183,9 +183,9 @@ async function callOpenAiLlm(
 
   const content =
     data.choices &&
-    data.choices[0] &&
-    data.choices[0].message &&
-    data.choices[0].message.content
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
       ? data.choices[0].message.content
       : null;
 
@@ -242,8 +242,8 @@ async function callAnthropicLlm(
   const contextBlock =
     passages.length > 0
       ? `Yah kuchh sambandhit Gita ke bhaag hain:\n\n${passages
-          .map((p, index) => `(${index + 1}) ${p}`)
-          .join("\n\n")}\n\n`
+        .map((p, index) => `(${index + 1}) ${p}`)
+        .join("\n\n")}\n\n`
       : "";
 
   const userPrompt =
@@ -349,11 +349,12 @@ export async function POST(request: Request) {
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasOpenAi = !!process.env.OPENAI_API_KEY;
 
-  if (hasOpenAi) {
+  // Use Ollama by default as per user request
+  result = await callOllamaLlm({ message }, passageTexts);
+
+  // Fallback to other providers if Ollama fails and keys are available
+  if (!result && hasOpenAi) {
     result = await callOpenAiLlm({ message }, passageTexts);
-  }
-  if (!result) {
-    result = await callOllamaLlm({ message }, passageTexts);
   }
   if (!result && hasAnthropic) {
     result = await callAnthropicLlm({ message }, passageTexts);

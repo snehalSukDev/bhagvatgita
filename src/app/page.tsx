@@ -11,12 +11,17 @@ type Verse = {
 };
 
 type GuideResponse = {
-  emotion: string;
-  topic: string;
-  verse: Verse;
-  response: string;
-  reflectionQuestion: string;
-  isCrisis: boolean;
+  verse_sanskrit_english: string;
+  translation: string;
+  personalized_wisdom: string;
+  reflection_question: string;
+  metadata: {
+    id: string;
+    chapter: number;
+    verse: number;
+    topics: string;
+    meaning: string;
+  };
 };
 
 export default function Home() {
@@ -58,74 +63,36 @@ export default function Home() {
     setError(null);
     setGuide(null);
     try {
-      const res = await fetch("/api/guide-llm", {
+      const res = await fetch("https://8b518cdbf46d.ngrok-free.app/api/v1/reflect", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          text: message,
+          age: 27,
+          language: "English"
+        }),
       });
       if (!res.ok) {
-        let friendly =
-          "Abhi online guide tak pahunch nahi ho pa rahi hai. Kripya thodi der baad phir se koshish karein.";
-        try {
-          const data = (await res.json()) as {
-            error?: string;
-            message?: string;
-          };
-          if (data && typeof data.message === "string") {
-            friendly = data.message;
-          } else if (data && typeof data.error === "string") {
-            if (data.error === "NO_LLM_KEYS") {
-              friendly =
-                "Server par LLM ki API keys set nahi hain. Kripya OpenAI ya Anthropic key configure karein.";
-            } else {
-              friendly = data.error;
-            }
-          }
-        } catch {}
-        setError(friendly);
+        setError("Could not connect to the local AI guide. Please ensure the backend is running.");
         setLoading(false);
         return;
       }
-      const llm = (await res.json()) as {
-        emotion?: string;
-        topic?: string;
-        response?: string;
-        reflectionQuestion?: string;
-        verseReference?: string;
-        verseSanskrit?: string;
-        verseTranslation?: string;
-      };
-      const guideFromLlm: GuideResponse = {
-        emotion: llm.emotion || "Unclear / Mixed",
-        topic: llm.topic || "Understanding your situation",
-        verse: {
-          reference: llm.verseReference || "",
-          sanskrit: llm.verseSanskrit || "",
-          translation: llm.verseTranslation || "",
-        },
-        response:
-          llm.response ||
-          "Abhi main aapka sandesh theek se samajh nahi paaya, thodi der baad phir se koshish karein.",
-        reflectionQuestion:
-          llm.reflectionQuestion ||
-          "Is waqt aapke dil mein sabse zyada bhaari baat kaunsi hai?",
-        isCrisis: false,
-      };
-      setGuide(guideFromLlm);
+      const data = (await res.json()) as GuideResponse;
+      setGuide(data);
     } catch {
-      setError(
-        "Abhi online guide tak pahunch nahi ho pa rahi hai. Kripya thodi der baad phir se koshish karein."
-      );
+      setError("Could not connect to the local AI guide. Please check your connection.");
     } finally {
       setLoading(false);
     }
+
   }
 
   async function handleSpeak() {
     if (!guide) return;
-    const text = `${guide.verse.sanskrit}\n\n${guide.response} Reflection: ${guide.reflectionQuestion}`;
+    const text = `${guide.verse_sanskrit_english}\n\n${guide.personalized_wisdom} Reflection: ${guide.reflection_question}`;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -140,7 +107,7 @@ export default function Home() {
     try {
       fluteRef.current.currentTime = 0;
       void fluteRef.current.play();
-    } catch {}
+    } catch { }
     try {
       const payload: { text: string; voiceId?: string } = { text };
       if (voiceId.trim().length > 0) {
@@ -340,16 +307,14 @@ export default function Home() {
               <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
                   <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-200 ring-1 ring-emerald-400/40">
-                    Emotion: {guide.emotion}
+                    Chapter: {guide.metadata.chapter}
                   </span>
                   <span className="rounded-full bg-sky-500/10 px-3 py-1 text-sky-200 ring-1 ring-sky-400/40">
-                    Theme: {guide.topic}
+                    Verse: {guide.metadata.verse}
                   </span>
-                  {guide.isCrisis && (
-                    <span className="rounded-full bg-rose-500/15 px-3 py-1 text-rose-100 ring-1 ring-rose-500/60">
-                      Safety first
-                    </span>
-                  )}
+                  <span className="rounded-full bg-amber-500/10 px-3 py-1 text-amber-200 ring-1 ring-amber-400/40">
+                    Topics: {guide.metadata.topics}
+                  </span>
                 </div>
 
                 <div className="rounded-2xl bg-black/50 p-4 ring-1 ring-white/10">
@@ -357,26 +322,28 @@ export default function Home() {
                     Shloka
                   </p>
                   <p className="mt-1 text-xs text-zinc-400">
-                    {guide.verse.reference}
+                    BG {guide.metadata.chapter}.{guide.metadata.verse}
                   </p>
                   <p className="mt-3 shloka-text text-base leading-relaxed text-amber-100 md:text-lg">
-                    {guide.verse.sanskrit}
+                    {guide.verse_sanskrit_english}
                   </p>
                   <p className="mt-3 text-sm text-zinc-200 md:text-base">
-                    {guide.verse.translation}
+                    {guide.translation}
                   </p>
                 </div>
 
                 <div className="space-y-3 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
                   <p className="text-xs uppercase tracking-[0.2em] text-sky-200">
-                    Gentle explanation
+                    Personalized Wisdom
                   </p>
                   <p className="text-sm leading-relaxed text-zinc-100 md:text-base">
-                    {guide.response}
+                    {guide.personalized_wisdom}
                   </p>
-                  <p className="mt-2 text-xs font-medium text-amber-100 md:text-sm">
-                    Reflection: {guide.reflectionQuestion}
-                  </p>
+                  {guide.reflection_question && (
+                    <p className="mt-2 text-xs font-medium text-amber-100 md:text-sm">
+                      Reflection: {guide.reflection_question}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
