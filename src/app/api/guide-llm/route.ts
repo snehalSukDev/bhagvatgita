@@ -12,6 +12,108 @@ type GuideLlmResponse = {
   passages: string[];
 };
 
+async function callOllamaLlm(
+  payload: GuideLlmRequest,
+  passages: string[]
+): Promise<GuideLlmResponse | null> {
+  const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+  const model = process.env.OLLAMA_LLM_MODEL || "llama3.2";
+
+  const system =
+    "You are a deeply empathetic counselor who blends modern mental health understanding with the wisdom of the Bhagavad Gita. " +
+    "You must reply almost entirely in Hindi, using very simple, soothing, everyday Hindi words, like a caring elder or close friend. Avoid English sentences; only occasional single English terms or Sanskrit words are allowed when natural. " +
+    "You occasionally weave in short Sanskrit lines from the shlokas in a respectful way. " +
+    "Your task is to respond to the user in a way that feels calm, grounding, and non-judgmental. " +
+    "Keep your response short and focused: 2–4 chhote, saaf paragraphs. " +
+    "Always end with one gentle reflection question that the user can sit with. " +
+    "You must respond strictly in JSON as described by the user message.";
+
+  const contextBlock =
+    passages.length > 0
+      ? `Yah kuchh sambandhit Gita ke bhaag hain:\n\n${passages
+          .map((p, index) => `(${index + 1}) ${p}`)
+          .join("\n\n")}\n\n`
+      : "";
+
+  const userPrompt =
+    `${contextBlock}` +
+    `Upyogakarta ka sandesh (Hindi ya mix language ho sakta hai):\n"${payload.message}"\n\n` +
+    "1. Pehle, unki bhavna ko bahut dhyaan se samjho aur seedhi, naram, thodi desi Hindi mein shabd do (jaise roz-ba-roz baat-cheet).\n" +
+    "2. Phir, Gita ki drishti se, unki sthiti ko samjhaane ki koshish karo, jaise koi dayaalu mitra ya bada bhai/behna aaram se samjha raha ho.\n" +
+    "3. Bhasha bahut hi naram, dhairya-poorn, dheemi aur tasalli dene wali ho. English vaakya mat likho.\n" +
+    "4. Jawaab lamba mat banao: bas 2–4 chhote, saaf paragraphs rakho, taaki padhna halka lage.\n" +
+    "5. Ant mein sirf ek reflection question do, jo unhe dheere se andar jhaankne mein madad kare, aur yeh question bhi seedhi Hindi mein ho.\n\n" +
+    "Apna uttar sirf is JSON format mein do (koi extra text nahi):\n" +
+    '{\n  "emotion": "string (Hindi)",\n  "topic": "string (Hindi)",\n  "response": "string (Hindi explanation)",\n  "reflectionQuestion": "string (Hindi question)"\n}';
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+  } catch (err) {
+    console.error("Ollama LLM network error:", err);
+    return null;
+  }
+
+  if (!res.ok) {
+    try {
+      const errorBody = await res.text();
+      console.error("Ollama LLM error:", res.status, errorBody);
+    } catch {
+      console.error("Ollama LLM error with unknown body", res.status);
+    }
+    return null;
+  }
+
+  const data = (await res.json()) as {
+    message?: { content?: string };
+  };
+
+  const text =
+    data.message && data.message.content ? data.message.content : null;
+
+  if (!text) {
+    return null;
+  }
+
+  let parsed: {
+    emotion?: string;
+    topic?: string;
+    response?: string;
+    reflectionQuestion?: string;
+  };
+
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  if (!parsed.response || !parsed.reflectionQuestion) {
+    return null;
+  }
+
+  return {
+    emotion: parsed.emotion || "Mixed",
+    topic: parsed.topic || "Understanding your situation",
+    response: parsed.response,
+    reflectionQuestion: parsed.reflectionQuestion,
+    passages,
+  };
+}
+
 async function callOpenAiLlm(
   payload: GuideLlmRequest,
   passages: string[]
@@ -247,25 +349,14 @@ export async function POST(request: Request) {
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasOpenAi = !!process.env.OPENAI_API_KEY;
 
-  if (!hasAnthropic && !hasOpenAi) {
-    return new Response(
-      JSON.stringify({
-        error: "NO_LLM_KEYS",
-        message:
-          "No LLM API keys configured on the server. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY.",
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  }
-
-  result = await callAnthropicLlm({ message }, passageTexts);
-  if (!result) {
+  if (hasOpenAi) {
     result = await callOpenAiLlm({ message }, passageTexts);
+  }
+  if (!result) {
+    result = await callOllamaLlm({ message }, passageTexts);
+  }
+  if (!result && hasAnthropic) {
+    result = await callAnthropicLlm({ message }, passageTexts);
   }
 
   if (!result) {
