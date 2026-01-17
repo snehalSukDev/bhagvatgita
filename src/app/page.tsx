@@ -19,205 +19,6 @@ type GuideResponse = {
   isCrisis: boolean;
 };
 
-const CRISIS_KEYWORDS: string[] = [
-  "suicide",
-  "kill myself",
-  "end my life",
-  "self-harm",
-  "self harm",
-  "cut myself",
-  "die",
-];
-
-function detectCrisis(text: string): boolean {
-  const lowered = text.toLowerCase();
-  return CRISIS_KEYWORDS.some((keyword) => lowered.includes(keyword));
-}
-
-function basicEmotionAndTopic(text: string): {
-  emotion: string;
-  topic: string;
-} {
-  const lowered = text.toLowerCase();
-  if (
-    ["worthless", "ashamed", "shame", "embarrassed"].some((w) =>
-      lowered.includes(w)
-    )
-  ) {
-    return {
-      emotion: "Shame / Low self-worth",
-      topic: "Failure and self-worth",
-    };
-  }
-  if (
-    ["failed", "exam", "results", "marks", "score"].some((w) =>
-      lowered.includes(w)
-    )
-  ) {
-    return {
-      emotion: "Disappointment",
-      topic: "Failure and attachment to results",
-    };
-  }
-  if (
-    ["anxious", "anxiety", "stressed", "pressure"].some((w) =>
-      lowered.includes(w)
-    )
-  ) {
-    return {
-      emotion: "Anxiety",
-      topic: "Overthinking outcomes",
-    };
-  }
-  if (
-    ["breakup", "relationship", "heartbroken", "alone"].some((w) =>
-      lowered.includes(w)
-    )
-  ) {
-    return {
-      emotion: "Grief / Loneliness",
-      topic: "Attachment and relationships",
-    };
-  }
-  if (
-    ["tired", "giving up", "give up", "exhausted"].some((w) =>
-      lowered.includes(w)
-    )
-  ) {
-    return {
-      emotion: "Exhaustion / Hopelessness",
-      topic: "Perseverance and purpose",
-    };
-  }
-  return {
-    emotion: "Unclear / Mixed",
-    topic: "Understanding your situation",
-  };
-}
-
-const VERSE_KARMA_YOGA: Verse = {
-  reference: "Chapter 2, Verse 47",
-  sanskrit:
-    "karmaṇy evādhikāras te\nmā phaleṣu kadācana\nmā karma-phala-hetur bhūr\nmā te saṅgo 'stv akarmaṇi",
-  translation:
-    "You have a right to perform your prescribed duties, but you are not entitled to the fruits of your actions. Never consider yourself the cause of the results of your activities, and never be attached to not doing your duty.",
-};
-
-const VERSE_STEADY_MIND: Verse = {
-  reference: "Chapter 2, Verse 48",
-  sanskrit:
-    "yoga-sthaḥ kuru karmāṇi\nsaṅgaṁ tyaktvā dhanañjaya\nsiddhy-asiddhyoḥ samo bhūtvā\nsamatvaṁ yoga ucyate",
-  translation:
-    "Perform your duties, O Arjuna, being steadfast in yoga, abandoning attachment, and remaining even-minded in success and failure. Such equanimity is called yoga.",
-};
-
-const VERSE_GENERAL_CONSOLATION: Verse = {
-  reference: "Chapter 18, Verse 66",
-  sanskrit:
-    "sarva-dharmān parityajya\nmām ekaṁ śaraṇaṁ vraja\nahaṁ tvāṁ sarva-pāpebhyo\nmokṣayiṣyāmi mā śucaḥ",
-  translation:
-    "Abandon all varieties of duty and simply surrender unto Me. I shall deliver you from all sinful reactions. Do not fear.",
-};
-
-function chooseVerse(text: string): Verse {
-  const lowered = text.toLowerCase();
-  if (
-    [
-      "results",
-      "marks",
-      "score",
-      "promotion",
-      "job",
-      "interview",
-      "hard work",
-      "failed",
-    ].some((w) => lowered.includes(w))
-  ) {
-    return VERSE_KARMA_YOGA;
-  }
-  if (
-    [
-      "anxious",
-      "anxiety",
-      "stress",
-      "stressed",
-      "pressure",
-      "overthinking",
-    ].some((w) => lowered.includes(w))
-  ) {
-    return VERSE_STEADY_MIND;
-  }
-  return VERSE_GENERAL_CONSOLATION;
-}
-
-function buildExplanation(message: string): GuideResponse {
-  if (detectCrisis(message)) {
-    const crisisText =
-      "Your life is precious, and the pain you are feeling right now is very real. " +
-      "I am a spiritual companion, not a doctor or emergency service, so I cannot safely guide you alone through thoughts of self-harm or suicide.\n\n" +
-      "In the spirit of the Bhagavad Gita, your life is a sacred journey, even when the path feels unbearably dark. Please reach out right now to someone who can hold you in this moment:\n\n" +
-      "• If you are in immediate danger, contact your local emergency number.\n" +
-      "• Call a trusted mental health helpline in your country.\n" +
-      "• Speak to a therapist, counselor, or a trusted person in your life.\n\n" +
-      "You do not have to carry this alone. Reaching out is an act of courage, not weakness.";
-
-    return {
-      emotion: "Crisis / Self-harm risk",
-      topic: "Immediate safety and support",
-      verse: VERSE_GENERAL_CONSOLATION,
-      response: crisisText,
-      reflectionQuestion:
-        "Who is one safe, caring person or service you can reach out to right now?",
-      isCrisis: true,
-    };
-  }
-
-  const { emotion, topic } = basicEmotionAndTopic(message);
-  const verse = chooseVerse(message);
-
-  let responseText: string;
-  let reflection: string;
-
-  if (verse.reference === VERSE_KARMA_YOGA.reference) {
-    responseText =
-      "It sounds like you have been pouring your heart into your efforts and the outcome has left you feeling defeated. " +
-      "In modern life, this often looks like studying hard for an exam, giving everything to a project, or trying sincerely in a job or relationship, only to see results that feel unfair.\n\n" +
-      "In this verse, Krishna gently reminds Arjuna that our true power lies in the sincerity and integrity of our actions, not in the final scoreboard of success or failure. " +
-      "Imagine someone training for months for a race. On the day of the event, unexpected rain slows them down and they do not win. From the world's perspective, they 'lost'. " +
-      "But from the Gita's perspective, every disciplined morning, every moment of honest effort, and every bit of growth in character was already a deep success.\n\n" +
-      "This verse invites you to loosen the tight knot between your self-worth and your latest result. Your effort, courage, and sincerity are meaningful, even when the outcome does not match your hopes.";
-    reflection =
-      "If you gently separated your value as a person from this one result, what would you allow yourself to see and appreciate about your effort?";
-  } else if (verse.reference === VERSE_STEADY_MIND.reference) {
-    responseText =
-      "You seem to be carrying a mind that keeps swinging between hope and fear, success and failure in your imagination. " +
-      "In modern terms, it is like refreshing exam results, email, or messages again and again, living in a storm of 'what if'.\n\n" +
-      "Krishna describes yoga here as a steady inner state where you still act with care, but you are not constantly tossed around by the fear of failure or the hunger for praise. " +
-      "Picture yourself working on a long-term project: instead of obsessing over how others will judge the final outcome, you bring your attention back to doing the next small step well, with calm breathing and a quieter heart.\n\n" +
-      "The verse is not asking you to stop caring; it is inviting you to care from a grounded, centered place rather than from panic.";
-    reflection =
-      "What is one small action you can take today with a steadier mind, focusing on the step itself rather than the outcome?";
-  } else {
-    responseText =
-      "You may be feeling lost, guilty, or unsure about where your life is heading. " +
-      "When everything feels heavy, it is easy to think you must solve everything alone.\n\n" +
-      "In this verse, Krishna offers a deep reassurance: you do not have to carry the entire universe on your shoulders. " +
-      "Just as a child can rest when held by someone they trust, you are invited to lean into something higher than your present confusion—whether you call it God, the universe, or a quiet, guiding wisdom within.\n\n" +
-      "This is not an instruction to run away from responsibilities. It is a reminder that you are supported, even when you cannot see the full picture yet.";
-    reflection =
-      "If you allowed yourself to be gently supported for a moment, what burden would you admit is too heavy to carry alone?";
-  }
-
-  return {
-    emotion,
-    topic,
-    verse,
-    response: responseText,
-    reflectionQuestion: reflection,
-    isCrisis: false,
-  };
-}
-
 export default function Home() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -257,70 +58,65 @@ export default function Home() {
     setError(null);
     setGuide(null);
     try {
-      const base = buildExplanation(message);
-      let enriched = base;
-
-      try {
-        const res = await fetch("/api/gita-search", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ question: message }),
-        });
-        if (res.ok) {
-          const payload: { passages?: string[] } = await res.json();
-          const first = payload.passages && payload.passages[0];
-          if (first) {
-            enriched = {
-              ...base,
-              verse: {
-                ...base.verse,
-                sanskrit: first,
-              },
-            };
+      const res = await fetch("/api/guide-llm", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      });
+      if (!res.ok) {
+        let friendly =
+          "Abhi online guide tak pahunch nahi ho pa rahi hai. Kripya thodi der baad phir se koshish karein.";
+        try {
+          const data = (await res.json()) as {
+            error?: string;
+            message?: string;
+          };
+          if (data && typeof data.message === "string") {
+            friendly = data.message;
+          } else if (data && typeof data.error === "string") {
+            if (data.error === "NO_LLM_KEYS") {
+              friendly =
+                "Server par LLM ki API keys set nahi hain. Kripya OpenAI ya Anthropic key configure karein.";
+            } else {
+              friendly = data.error;
+            }
           }
-        }
-      } catch {}
-
-      try {
-        const res = await fetch("/api/guide-llm", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message }),
-        });
-        if (res.ok) {
-          const llm = (await res.json()) as {
-            emotion?: string;
-            topic?: string;
-            response?: string;
-            reflectionQuestion?: string;
-            passages?: string[];
-          };
-          enriched = {
-            ...enriched,
-            emotion: llm.emotion || enriched.emotion,
-            topic: llm.topic || enriched.topic,
-            response: llm.response || enriched.response,
-            reflectionQuestion:
-              llm.reflectionQuestion || enriched.reflectionQuestion,
-            verse: {
-              ...enriched.verse,
-              sanskrit:
-                (llm.passages && llm.passages[0]) || enriched.verse.sanskrit,
-            },
-          };
-        }
-      } catch {}
-
-      setGuide(enriched);
-    } catch (err) {
+        } catch {}
+        setError(friendly);
+        setLoading(false);
+        return;
+      }
+      const llm = (await res.json()) as {
+        emotion?: string;
+        topic?: string;
+        response?: string;
+        reflectionQuestion?: string;
+        verseReference?: string;
+        verseSanskrit?: string;
+        verseTranslation?: string;
+      };
+      const guideFromLlm: GuideResponse = {
+        emotion: llm.emotion || "Unclear / Mixed",
+        topic: llm.topic || "Understanding your situation",
+        verse: {
+          reference: llm.verseReference || "",
+          sanskrit: llm.verseSanskrit || "",
+          translation: llm.verseTranslation || "",
+        },
+        response:
+          llm.response ||
+          "Abhi main aapka sandesh theek se samajh nahi paaya, thodi der baad phir se koshish karein.",
+        reflectionQuestion:
+          llm.reflectionQuestion ||
+          "Is waqt aapke dil mein sabse zyada bhaari baat kaunsi hai?",
+        isCrisis: false,
+      };
+      setGuide(guideFromLlm);
+    } catch {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to reach your spiritual guide right now."
+        "Abhi online guide tak pahunch nahi ho pa rahi hai. Kripya thodi der baad phir se koshish karein."
       );
     } finally {
       setLoading(false);

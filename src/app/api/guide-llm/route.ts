@@ -1,5 +1,3 @@
-import { loadPassages, scorePassage, type Passage } from "../gita-search/route";
-
 export const runtime = "nodejs";
 
 type GuideLlmRequest = {
@@ -13,112 +11,6 @@ type GuideLlmResponse = {
   reflectionQuestion: string;
   passages: string[];
 };
-
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  const length = Math.min(a.length, b.length);
-  for (let i = 0; i < length; i += 1) {
-    const av = a[i];
-    const bv = b[i];
-    dot += av * bv;
-    normA += av * av;
-    normB += bv * bv;
-  }
-  if (normA === 0 || normB === 0) {
-    return 0;
-  }
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-}
-
-async function pickPassagesWithEmbeddings(
-  question: string,
-  candidates: Passage[]
-): Promise<Passage[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || candidates.length === 0) {
-    return candidates.slice(0, 3);
-  }
-
-  const model = process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small";
-
-  const input = [question, ...candidates.map((p) => p.text)];
-
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input,
-    }),
-  });
-
-  if (!res.ok) {
-    return candidates.slice(0, 3);
-  }
-
-  const data = (await res.json()) as {
-    data?: { embedding: number[] }[];
-  };
-
-  if (!data.data || data.data.length < 2) {
-    return candidates.slice(0, 3);
-  }
-
-  const [questionEmbedding, ...passageEmbeddings] = data.data;
-
-  const scored = passageEmbeddings.map((item, index) => {
-    const similarity = cosineSimilarity(
-      questionEmbedding.embedding,
-      item.embedding
-    );
-    return {
-      index,
-      similarity,
-    };
-  });
-
-  scored.sort((a, b) => b.similarity - a.similarity);
-
-  const top = scored.slice(0, 3);
-
-  return top.map((t) => candidates[t.index]);
-}
-
-async function buildContextPassages(
-  question: string
-): Promise<Passage[] | null> {
-  try {
-    const passages = await loadPassages();
-    const scored = passages
-      .map((p, index) => ({
-        passage: p,
-        score: scorePassage(p, question),
-        index,
-      }))
-      .filter((item) => item.score > 0);
-
-    let candidates: Passage[];
-    if (scored.length === 0) {
-      candidates = passages.slice(0, 30);
-    } else {
-      scored.sort((a, b) => b.score - a.score);
-      candidates = scored.slice(0, 30).map((item) => item.passage);
-    }
-
-    const topWithEmbeddings = await pickPassagesWithEmbeddings(
-      question,
-      candidates
-    );
-    return topWithEmbeddings;
-  } catch {
-    return null;
-  }
-}
 
 async function callOpenAiLlm(
   payload: GuideLlmRequest,
@@ -174,6 +66,12 @@ async function callOpenAiLlm(
   });
 
   if (!res.ok) {
+    try {
+      const errorBody = await res.text();
+      console.error("OpenAI LLM error:", res.status, errorBody);
+    } catch {
+      console.error("OpenAI LLM error with unknown body", res.status);
+    }
     return null;
   }
 
@@ -283,6 +181,12 @@ async function callAnthropicLlm(
   });
 
   if (!res.ok) {
+    try {
+      const errorBody = await res.text();
+      console.error("Anthropic LLM error:", res.status, errorBody);
+    } catch {
+      console.error("Anthropic LLM error with unknown body", res.status);
+    }
     return null;
   }
 
@@ -336,13 +240,28 @@ export async function POST(request: Request) {
     return new Response("No message provided", { status: 400 });
   }
 
-  const contextPassages = await buildContextPassages(message);
-  const passageTexts =
-    contextPassages && contextPassages.length > 0
-      ? contextPassages.map((p) => p.text)
-      : [];
+  const passageTexts: string[] = [];
 
   let result: GuideLlmResponse | null = null;
+
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+  const hasOpenAi = !!process.env.OPENAI_API_KEY;
+
+  if (!hasAnthropic && !hasOpenAi) {
+    return new Response(
+      JSON.stringify({
+        error: "NO_LLM_KEYS",
+        message:
+          "No LLM API keys configured on the server. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY.",
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
 
   result = await callAnthropicLlm({ message }, passageTexts);
   if (!result) {
@@ -350,7 +269,19 @@ export async function POST(request: Request) {
   }
 
   if (!result) {
-    return new Response("No LLM configured", { status: 500 });
+    return new Response(
+      JSON.stringify({
+        error: "LLM_CALL_FAILED",
+        message:
+          "Tried contacting the LLM providers, but the calls failed. Please check API keys and network.",
+      }),
+      {
+        status: 502,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
   }
 
   return new Response(JSON.stringify(result), {
