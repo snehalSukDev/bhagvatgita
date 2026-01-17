@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --gold: #f4d27a;
+  --deep-blue: #050816;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.shloka-text {
+  font-family: var(--font-playfair), "Times New Roman", ui-serif, Georgia, serif;
+  letter-spacing: 0.03em;
+}
+
+.sacred-background {
+  position: relative;
+  isolation: isolate;
+  background-image: radial-gradient(
+      circle at top,
+      rgba(244, 210, 122, 0.35),
+      transparent 55%
+    ),
+    radial-gradient(circle at bottom, rgba(15, 23, 42, 0.9), #020617),
+    url("/bg-gita.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.sacred-background::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      circle at top left,
+      rgba(251, 191, 36, 0.25),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(59, 130, 246, 0.2),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at bottom,
+      rgba(15, 23, 42, 0.7),
+      rgba(15, 23, 42, 0.95)
+    );
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  z-index: -1;
+}
